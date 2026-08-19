@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulá tu carry trade</title>
+<style>
+  :root { color-scheme: light; }
+
+  .viz-root {
+    --surface-1:      #fcfcfb;
+    --page:           #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --grid:           #e1e0d9;
+    --border:         rgba(11,11,11,0.10);
+    --series-1:       #2a78d6;
+    --series-1-wash:  #eaf1fb;
+    --good:           #0ca30c;
+    --critical:       #d03b3b;
+    --chip-bg:        #f0efec;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    .viz-root {
+      --surface-1:      #1a1a19;
+      --page:           #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --grid:           #2c2c2a;
+      --border:         rgba(255,255,255,0.12);
+      --series-1:       #3987e5;
+      --series-1-wash:  #16283d;
+      --good:           #0ca30c;
+      --critical:       #e66767;
+      --chip-bg:        #262625;
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--page); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+
+  .viz-root {
+    background: var(--page);
+    color: var(--text-primary);
+    padding: 18px 16px 20px;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; }
+
+  h1 { font-size: 18px; line-height: 1.3; margin: 0 0 6px; font-weight: 700; }
+  p.lead { font-size: 13.5px; color: var(--text-secondary); margin: 0 0 16px; line-height: 1.45; }
+  p.explain { font-size: 13px; color: var(--text-secondary); margin: 0 0 6px; line-height: 1.45; }
+  p.hint { font-size: 12px; color: var(--text-muted); margin: 0 0 12px; line-height: 1.4; }
+
+  /* ---- Scenario cards ---- */
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
+  .tile {
+    text-align: left; cursor: pointer; padding: 10px 11px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--surface-1); font-family: inherit; color: var(--text-primary);
+  }
+  .tile[aria-pressed="true"] { border-color: var(--series-1); background: var(--series-1-wash); }
+  .tile .k { font-size: 12px; font-weight: 600; }
+  .tile .v { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 3px; }
+  .tile .d { font-size: 11.5px; color: var(--text-secondary); margin-top: 4px; line-height: 1.35; }
+
+  /* ---- Amount ---- */
+  .amount-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-size: 13.5px; color: var(--text-secondary);
+  }
+  .amount-row input {
+    width: 140px; font-family: inherit; font-size: 14px; padding: 7px 9px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- Legend ---- */
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-secondary); margin-bottom: 14px; flex-wrap: wrap; }
+  .legend span.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  .legend .g .dot { background: var(--good); }
+  .legend .c .dot { background: var(--critical); }
+
+  /* ---- Chips (filtro por tipo) ---- */
+  .chips { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
+  .chip {
+    cursor: pointer; padding: 6px 12px; border-radius: 999px; font-family: inherit;
+    font-size: 12.5px; font-weight: 600; border: 1px solid var(--border);
+    background: var(--chip-bg); color: var(--text-secondary);
+  }
+  .chip[aria-pressed="true"] { background: var(--series-1); border-color: var(--series-1); color: #fff; }
+
+  /* ---- Control de orden ---- */
+  .sort-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary); flex-wrap: wrap; }
+  .sort-row select, .sort-row .dir-btn {
+    font-family: inherit; font-size: 13px; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary); cursor: pointer;
+  }
+  .sort-row .dir-btn:disabled { cursor: default; opacity: 0.45; }
+  .sort-row .dir-btn:not(:disabled):hover { border-color: var(--series-1); }
+
+  /* ---- Table ---- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-1); }
+  table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 13px; }
+  thead th {
+    text-align: center; padding: 10px 8px; font-weight: 600; color: var(--text-secondary);
+    border-bottom: 1px solid var(--grid); white-space: nowrap; cursor: pointer; user-select: none;
+  }
+  thead th:hover { color: var(--text-primary); }
+  thead th .sub { display: block; font-weight: 400; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  thead th .arrow { display: inline-block; margin-left: 3px; font-size: 10px; color: var(--series-1); }
+  thead th:first-child { text-align: left; }
+  tbody td { padding: 12px 8px; border-bottom: 1px solid var(--grid); text-align: center; font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td:first-child { text-align: left; white-space: normal; }
+  thead th:first-child, tbody td:first-child {
+    position: sticky; left: 0; background: var(--surface-1); box-shadow: 1px 0 0 var(--grid);
+  }
+  tbody tr.grupo td {
+    text-align: left; font-weight: 600; font-size: 11.5px; letter-spacing: 0.02em; text-transform: uppercase;
+    color: var(--text-muted); background: var(--chip-bg); padding: 7px 8px; border-bottom: 1px solid var(--grid);
+  }
+  tbody tr.grupo td:first-child { background: var(--chip-bg); }
+  td.name { font-weight: 700; }
+  td.name .tk { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; font-size: 12px; color: var(--series-1); }
+  td.name .expl { display: block; font-weight: 400; color: var(--text-secondary); font-size: 11.5px; margin-top: 2px; }
+  td.name .badge {
+    display: inline-block; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.02em;
+    color: var(--text-muted); background: var(--chip-bg); border-radius: 5px; padding: 1px 5px; margin-top: 3px;
+  }
+  td.col-active { background: var(--series-1-wash); }
+  .val { font-weight: 700; font-size: 14px; }
+  .val.good { color: var(--good); }
+  .val.critical { color: var(--critical); }
+  .sub-amt { display: block; font-size: 11px; font-weight: 400; color: var(--text-muted); margin-top: 2px; }
+
+  @media (max-width: 560px) {
+    .tiles { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="viz-root" id="vizRoot">
+
+  <h1>Simulá tu carry trade: ¿pesos o dólares hasta fin de año?</h1>
+  <p class="lead">
+    Elegí cuánto pensás invertir y compará qué pasaría con 56 instrumentos en pesos que cotizan hoy en el
+    mercado —agrupados por tipo— según hacia dónde se mueva el dólar de acá a diciembre. Tocá una de las
+    cuatro tarjetas para ver ese escenario resaltado en la tabla.
+  </p>
+
+  <div class="tiles" id="tiles" role="group" aria-label="Escenarios de dólar a diciembre"></div>
+
+  <div class="amount-row">
+    <label for="montoInput">Si invirtiera</label>
+    <input id="montoInput" type="text" inputmode="numeric" value="1.000.000">
+    <span>pesos hoy...</span>
+  </div>
+
+  <p class="explain">
+    Los porcentajes miden el resultado <strong>en dólares</strong>: cuánto ganás o perdés frente a haber
+    comprado dólares hoy mismo y guardarlos. Abajo de cada porcentaje te mostramos a cuántos dólares
+    equivaldría tu plata en ese escenario.
+  </p>
+
+  <div class="chips" id="chips" role="group" aria-label="Filtrar por tipo de instrumento"></div>
+
+  <div class="sort-row">
+    <label for="ordenarSelect">Ordenar por</label>
+    <select id="ordenarSelect"></select>
+    <button type="button" id="ordenarDirBtn" class="dir-btn" disabled>Mayor a menor ▼</button>
+  </div>
+
+  <div class="table-wrap">
+    <table id="tbl">
+      <thead>
+        <tr id="theadRow"></tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Datos base ----------
+  var FECHA_HOY = Date.UTC(2026, 7, 14);   // 14-ago-2026
+  var FECHA_OBJ = Date.UTC(2026, 11, 30);  // 30-dic-2026
+  var DIAS = Math.round((FECHA_OBJ - FECHA_HOY) / 86400000);
+  var DOLAR_SPOT = 1487.5;
+  var INFLACION_ESPERADA = 0.08;
+
+  var ESCENARIOS = [
+    { key: "futuro", label: "Dólar futuro", desc: "Lo que el mercado apuesta a pagar por un dólar a fin de año.", dolar: 1616.50 },
+    { key: "rem",    label: "Dólar REM", desc: "Lo que proyectan los economistas consultados por el Banco Central.", dolar: 1652.00 },
+    { key: "techo",  label: "Techo de la banda", desc: "El valor más alto al que podría llegar el dólar sin que el Gobierno intervenga.", dolar: 2025.373464 },
+    { key: "piso",   label: "Piso de la banda", desc: "El valor más bajo al que podría caer el dólar dentro del esquema actual.", dolar: 690.210628 }
+  ];
+
+  // cat: simple | cer | dual_fixed_tamar | dual_cer_tamar | dual_dl_tamar | dl
+  // Fuente de todos los instrumentos: IAMC/BYMA, cierre 14-ago-2026.
+  var GRUPOS = [
+    {
+      titulo: "Tasa fija y TAMAR capitalizable (Lecap / Boncap / bonos TAMAR)",
+      corto: "Tasa fija",
+      filas: [
+        { ticker: "S31G6", tipo: "Lecap", vto: "31-ago-26", cat: "simple", tea1: 0.2621 },
+        { ticker: "S15S6", tipo: "Lecap", vto: "15-sep-26", cat: "simple", tea1: 0.2806 },
+        { ticker: "S30S6", tipo: "Lecap", vto: "30-sep-26", cat: "simple", tea1: 0.2895 },
+        { ticker: "S16O6", tipo: "Lecap", vto: "16-oct-26", cat: "simple", tea1: 0.2792 },
+        { ticker: "S30O6", tipo: "Lecap", vto: "30-oct-26", cat: "simple", tea1: 0.2722 },
+        { ticker: "S13N6", tipo: "Lecap", vto: "13-nov-26", cat: "simple", tea1: 0.2917 },
+        { ticker: "S30N6", tipo: "Lecap", vto: "30-nov-26", cat: "simple", tea1: 0.2826 },
+        { ticker: "T15E7", tipo: "Boncap", vto: "15-ene-27", cat: "simple", tea1: 0.2877 },
+        { ticker: "T30A7", tipo: "Boncap", vto: "30-abr-27", cat: "simple", tea1: 0.2928 },
+        { ticker: "T31Y7", tipo: "Boncap", vto: "31-may-27", cat: "simple", tea1: 0.2925 },
+        { ticker: "T30J7", tipo: "Boncap", vto: "30-jun-27", cat: "simple", tea1: 0.2817 },
+        { ticker: "M31G6", tipo: "Bono TAMAR", vto: "31-ago-26", cat: "simple", tea1: 0.1596 },
+        { ticker: "TMF27", tipo: "Bono TAMAR", vto: "26-feb-27", cat: "simple", tea1: 0.2993 },
+        { ticker: "TML27", tipo: "Bono TAMAR", vto: "30-jul-27", cat: "simple", tea1: 0.3127 },
+        { ticker: "TMG27", tipo: "Bono TAMAR", vto: "31-ago-27", cat: "simple", tea1: 0.2972 },
+        { ticker: "TMF28", tipo: "Bono TAMAR", vto: "25-feb-28", cat: "simple", tea1: 0.2663 },
+        { ticker: "TMG28", tipo: "Bono TAMAR", vto: "31-ago-28", cat: "simple", tea1: 0.3846 }
+      ]
+    },
+    {
+      titulo: "CER cupón cero (ajustan por inflación, no pagan cupón)",
+      corto: "CER cupón cero",
+      filas: [
+        { ticker: "X30S6", tipo: "Letra CER", vto: "30-sep-26", cat: "cer", tea1: -0.0069 },
+        { ticker: "X30N6", tipo: "Letra CER", vto: "30-nov-26", cat: "cer", tea1: 0.0331 },
+        { ticker: "TZXO6", tipo: "Bono CER", vto: "30-oct-26", cat: "cer", tea1: 0.0145 },
+        { ticker: "TZXD6", tipo: "Bono CER", vto: "15-dic-26", cat: "cer", tea1: 0.0568 },
+        { ticker: "TZXM7", tipo: "Bono CER", vto: "31-mar-27", cat: "cer", tea1: 0.0668 },
+        { ticker: "TZXA7", tipo: "Bono CER", vto: "30-abr-27", cat: "cer", tea1: 0.0544 },
+        { ticker: "TZXY7", tipo: "Bono CER", vto: "31-may-27", cat: "cer", tea1: 0.0542 },
+        { ticker: "TZX27", tipo: "Bono CER", vto: "30-jun-27", cat: "cer", tea1: 0.0559 },
+        { ticker: "TZXS7", tipo: "Bono CER", vto: "30-sep-27", cat: "cer", tea1: 0.0660 },
+        { ticker: "TZXO7", tipo: "Bono CER", vto: "29-oct-27", cat: "cer", tea1: 0.0717 },
+        { ticker: "TZXD7", tipo: "Bono CER", vto: "15-dic-27", cat: "cer", tea1: 0.0824 },
+        { ticker: "TZXM8", tipo: "Bono CER", vto: "31-mar-28", cat: "cer", tea1: 0.0857 },
+        { ticker: "TZX28", tipo: "Bono CER", vto: "30-jun-28", cat: "cer", tea1: 0.0900 },
+        { ticker: "TZXS8", tipo: "Bono CER", vto: "29-sep-28", cat: "cer", tea1: 0.0898 },
+        { ticker: "TZXD8", tipo: "Bono CER", vto: "15-dic-28", cat: "cer", tea1: 0.0871 },
+        { ticker: "TZXM9", tipo: "Bono CER", vto: "28-mar-29", cat: "cer", tea1: 0.0910 }
+      ]
+    },
+    {
+      titulo: "CER a tasa fija (bonos largos, pagan cupón)",
+      corto: "CER largos",
+      filas: [
+        { ticker: "PAP0", tipo: "Bono CER (par)", vto: "31-dic-38", cat: "cer", tea1: 0.0895 },
+        { ticker: "PARP", tipo: "Bono CER (par)", vto: "31-dic-38", cat: "cer", tea1: 0.0927 },
+        { ticker: "TX26", tipo: "Bono CER", vto: "09-nov-26", cat: "cer", tea1: 0.0289 },
+        { ticker: "TX28", tipo: "Bono CER", vto: "09-nov-28", cat: "cer", tea1: 0.0778 },
+        { ticker: "TX31", tipo: "Bono CER", vto: "30-nov-31", cat: "cer", tea1: 0.0906 },
+        { ticker: "CUAP", tipo: "Bono CER (cuasipar)", vto: "31-dic-45", cat: "cer", tea1: 0.0889 },
+        { ticker: "DICP", tipo: "Bono CER", vto: "31-dic-33", cat: "cer", tea1: 0.0926 }
+      ]
+    },
+    {
+      titulo: "Bonos duales (pagan lo mejor entre dos opciones)",
+      corto: "Duales",
+      filas: [
+        { ticker: "TTS26", tipo: "Dual: fija vs. TAMAR", vto: "15-sep-26", cat: "dual_fixed_tamar", tea1: -0.7078, tea2: 0.2216 },
+        { ticker: "TTD26", tipo: "Dual: fija vs. TAMAR", vto: "15-dic-26", cat: "dual_fixed_tamar", tea1: -0.0890, tea2: 0.2693 },
+        { ticker: "TXMJ8", tipo: "Dual: CER vs. TAMAR", vto: "30-jun-28", cat: "dual_cer_tamar", tea1: 0.0617, tea2: 0.3690 },
+        { ticker: "TXMD8", tipo: "Dual: CER vs. TAMAR", vto: "15-dic-28", cat: "dual_cer_tamar", tea1: 0.0630, tea2: 0.3784 },
+        { ticker: "TXMJ9", tipo: "Dual: CER vs. TAMAR", vto: "29-jun-29", cat: "dual_cer_tamar", tea1: 0.0730, tea2: 0.3852 },
+        { ticker: "TXMD9", tipo: "Dual: CER vs. TAMAR", vto: "14-dic-29", cat: "dual_cer_tamar", tea1: 0.0705, tea2: 0.3893 },
+        { ticker: "TXMJ0", tipo: "Dual: CER vs. TAMAR", vto: "28-jun-30", cat: "dual_cer_tamar", tea1: 0.0709, tea2: 0.3903 },
+        { ticker: "TMVE8", tipo: "Dual: dólar linked vs. TAMAR", vto: "31-ene-28", cat: "dual_dl_tamar", tea1: 0.0602, tea2: 0.3502 }
+      ]
+    },
+    {
+      titulo: "Dólar linked (siguen al dólar oficial)",
+      corto: "Dólar linked",
+      filas: [
+        { ticker: "D31G6", tipo: "Letra DL", vto: "31-ago-26", cat: "dl", tea1: 0.0956 },
+        { ticker: "D30S6", tipo: "Letra DL", vto: "30-sep-26", cat: "dl", tea1: 0.0669 },
+        { ticker: "D15E7", tipo: "Letra DL", vto: "15-ene-27", cat: "dl", tea1: -0.0021 },
+        { ticker: "D31M7", tipo: "Letra DL", vto: "31-mar-27", cat: "dl", tea1: 0.0365 },
+        { ticker: "D10Y7", tipo: "Letra DL", vto: "10-may-27", cat: "dl", tea1: -0.0113 },
+        { ticker: "TZV27", tipo: "Bono DL", vto: "30-jun-27", cat: "dl", tea1: 0.0107 },
+        { ticker: "TZV28", tipo: "Bono DL", vto: "30-jun-28", cat: "dl", tea1: 0.0944 },
+        { ticker: "TZVD8", tipo: "Bono DL", vto: "15-dic-28", cat: "dl", tea1: 0.0972 }
+      ]
+    }
+  ];
+
+  // ---------- Cálculo ----------
+  function rPesos(fila, dolarEscenario) {
+    var t = DIAS / 365;
+    switch (fila.cat) {
+      case "simple": return Math.pow(1 + fila.tea1, t) - 1;
+      case "cer": return Math.pow(1 + fila.tea1, t) * (1 + INFLACION_ESPERADA) - 1;
+      case "dual_fixed_tamar":
+        return Math.max(Math.pow(1 + fila.tea1, t) - 1, Math.pow(1 + fila.tea2, t) - 1);
+      case "dual_cer_tamar":
+        return Math.max(Math.pow(1 + fila.tea1, t) * (1 + INFLACION_ESPERADA) - 1, Math.pow(1 + fila.tea2, t) - 1);
+      case "dual_dl_tamar":
+        return Math.max((dolarEscenario / DOLAR_SPOT) * Math.pow(1 + fila.tea1, t) - 1, Math.pow(1 + fila.tea2, t) - 1);
+      case "dl":
+        return (dolarEscenario / DOLAR_SPOT) * Math.pow(1 + fila.tea1, t) - 1;
+    }
+  }
+  function rUSD(fila, dolarEscenario) {
+    var rp = rPesos(fila, dolarEscenario);
+    return (1 + rp) * DOLAR_SPOT / dolarEscenario - 1;
+  }
+
+  // ---------- Explicación en criollo por fila ----------
+  function fmtPctRaw(x) {
+    return (x * 100).toFixed(2).replace(".", ",") + "%";
+  }
+  function explText(fila) {
+    switch (fila.cat) {
+      case "simple": return "vence " + fila.vto + " · TEA " + fmtPctRaw(fila.tea1);
+      case "cer": return "vence " + fila.vto + " · tasa real " + fmtPctRaw(fila.tea1) + " + inflación";
+      case "dual_fixed_tamar":
+      case "dual_cer_tamar":
+        return "vence " + fila.vto + " · hoy le gana la pierna TAMAR (" + fmtPctRaw(fila.tea2) + ")";
+      case "dual_dl_tamar":
+        return "vence " + fila.vto + " · el ganador cambia según el escenario";
+      case "dl": return "vence " + fila.vto + " · TIR " + fmtPctRaw(fila.tea1);
+    }
+  }
+
+  // ---------- Formato ----------
+  function fmtPct(x) {
+    var s = (x * 100).toFixed(1).replace(".", ",");
+    return (x >= 0 ? "+" : "") + s + "%";
+  }
+  function fmtMoney(x) { return "$" + Math.round(x).toLocaleString("es-AR"); }
+  function fmtUsd(x) { return "US$ " + Math.round(x).toLocaleString("es-AR"); }
+  function parseMonto(str) {
+    var n = parseFloat(String(str).replace(/\./g, "").replace(/,/g, "."));
+    return isFinite(n) && n > 0 ? n : 1000000;
+  }
+
+  var state = { highlight: null, monto: 1000000, filtro: null, sortKey: null, sortDir: "desc" };
+
+  // ---------- Tarjetas de escenario ----------
+  var tilesEl = document.getElementById("tiles");
+  ESCENARIOS.forEach(function (esc) {
+    var btn = document.createElement("button");
+    btn.className = "tile card";
+    btn.type = "button";
+    btn.setAttribute("aria-pressed", "false");
+    btn.dataset.scenario = esc.key;
+    btn.innerHTML =
+      '<div class="k">' + esc.label + '</div>' +
+      '<div class="v">' + fmtMoney(esc.dolar) + '</div>' +
+      '<div class="d">' + esc.desc + '</div>';
+    btn.addEventListener("click", function () {
+      state.highlight = state.highlight === esc.key ? null : esc.key;
+      Array.prototype.forEach.call(tilesEl.children, function (t) {
+        t.setAttribute("aria-pressed", t.dataset.scenario === state.highlight ? "true" : "false");
+      });
+      renderTable();
+    });
+    tilesEl.appendChild(btn);
+  });
+
+  // ---------- Chips de filtro por tipo ----------
+  var chipsEl = document.getElementById("chips");
+  function crearChip(label, valor) {
+    var btn = document.createElement("button");
+    btn.className = "chip";
+    btn.type = "button";
+    btn.textContent = label;
+    btn.dataset.valor = valor === null ? "" : valor;
+    btn.setAttribute("aria-pressed", state.filtro === valor ? "true" : "false");
+    btn.addEventListener("click", function () {
+      state.filtro = valor;
+      Array.prototype.forEach.call(chipsEl.children, function (c) {
+        c.setAttribute("aria-pressed", c.dataset.valor === (valor === null ? "" : valor) ? "true" : "false");
+      });
+      renderTable();
+    });
+    return btn;
+  }
+  chipsEl.appendChild(crearChip("Todos", null));
+  GRUPOS.forEach(function (grupo) {
+    chipsEl.appendChild(crearChip(grupo.corto, grupo.titulo));
+  });
+
+  // ---------- Control explícito de orden (además del click en el encabezado) ----------
+  var ordenarSelect = document.getElementById("ordenarSelect");
+  var ordenarDirBtn = document.getElementById("ordenarDirBtn");
+  var optAgrupado = document.createElement("option");
+  optAgrupado.value = "";
+  optAgrupado.textContent = "Agrupados por tipo (sin ordenar)";
+  ordenarSelect.appendChild(optAgrupado);
+  ESCENARIOS.forEach(function (esc) {
+    var opt = document.createElement("option");
+    opt.value = esc.key;
+    opt.textContent = esc.label;
+    ordenarSelect.appendChild(opt);
+  });
+  ordenarSelect.addEventListener("change", function () {
+    state.sortKey = ordenarSelect.value === "" ? null : ordenarSelect.value;
+    state.sortDir = "desc";
+    renderTable();
+  });
+  ordenarDirBtn.addEventListener("click", function () {
+    state.sortDir = state.sortDir === "desc" ? "asc" : "desc";
+    renderTable();
+  });
+  function syncOrdenarControles() {
+    ordenarSelect.value = state.sortKey === null ? "" : state.sortKey;
+    ordenarDirBtn.disabled = state.sortKey === null;
+    ordenarDirBtn.textContent = state.sortDir === "desc" ? "Mayor a menor ▼" : "Menor a mayor ▲";
+  }
+
+  // ---------- Monto ----------
+  var montoInput = document.getElementById("montoInput");
+  montoInput.addEventListener("input", function () {
+    state.monto = parseMonto(montoInput.value);
+    renderTable();
+  });
+  montoInput.addEventListener("blur", function () {
+    montoInput.value = Math.round(state.monto).toLocaleString("es-AR");
+  });
+
+  // ---------- Encabezado de tabla (se redibuja para mostrar flechas de orden) ----------
+  var theadRow = document.getElementById("theadRow");
+  function renderThead() {
+    theadRow.innerHTML = "";
+    var thNombre = document.createElement("th");
+    thNombre.textContent = "Inversión";
+    thNombre.addEventListener("click", function () {
+      state.sortKey = null;
+      renderTable();
+    });
+    theadRow.appendChild(thNombre);
+    ESCENARIOS.forEach(function (esc) {
+      var th = document.createElement("th");
+      var arrow = "";
+      if (state.sortKey === esc.key) arrow = '<span class="arrow">' + (state.sortDir === "desc" ? "▼" : "▲") + '</span>';
+      th.innerHTML = esc.label + arrow + '<span class="sub">' + fmtMoney(esc.dolar) + '</span>';
+      th.addEventListener("click", function () {
+        if (state.sortKey === esc.key) {
+          if (state.sortDir === "desc") {
+            state.sortDir = "asc";
+          } else {
+            state.sortKey = null;
+            state.sortDir = "desc";
+          }
+        } else {
+          state.sortKey = esc.key;
+          state.sortDir = "desc";
+        }
+        renderTable();
+      });
+      theadRow.appendChild(th);
+    });
+  }
+
+  // ---------- Tabla ----------
+  var tbody = document.getElementById("tbody");
+  var NCOLS = 1 + ESCENARIOS.length;
+
+  function renderFila(fila, mostrarBadge) {
+    var tr = document.createElement("tr");
+
+    var tdName = document.createElement("td");
+    tdName.className = "name";
+    var badgeHtml = mostrarBadge ? '<span class="badge">' + fila._grupoCorto + '</span>' : "";
+    tdName.innerHTML =
+      '<span class="tk">' + fila.ticker + '</span> · ' + fila.tipo +
+      '<span class="expl">' + explText(fila) + badgeHtml + '</span>';
+    tr.appendChild(tdName);
+
+    ESCENARIOS.forEach(function (esc) {
+      var td = document.createElement("td");
+      if (state.highlight === esc.key) td.classList.add("col-active");
+
+      var r = rUSD(fila, esc.dolar);
+      var finalPesos = state.monto * (1 + rPesos(fila, esc.dolar));
+      var finalUsd = finalPesos / esc.dolar;
+      var span = document.createElement("span");
+      span.className = "val " + (r >= 0 ? "good" : "critical");
+      span.textContent = fmtPct(r);
+      td.appendChild(span);
+      var sub = document.createElement("span");
+      sub.className = "sub-amt";
+      sub.textContent = fmtUsd(finalUsd);
+      td.appendChild(sub);
+
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  }
+
+  function renderTable() {
+    renderThead();
+    syncOrdenarControles();
+    tbody.innerHTML = "";
+    var grupos = state.filtro === null ? GRUPOS : GRUPOS.filter(function (g) { return g.titulo === state.filtro; });
+
+    if (state.sortKey === null) {
+      // ---- Vista agrupada por tipo ----
+      grupos.forEach(function (grupo) {
+        var trg = document.createElement("tr");
+        trg.className = "grupo";
+        var tdg = document.createElement("td");
+        tdg.colSpan = NCOLS;
+        tdg.textContent = grupo.titulo;
+        trg.appendChild(tdg);
+        tbody.appendChild(trg);
+        grupo.filas.forEach(function (fila) { renderFila(fila, false); });
+      });
+    } else {
+      // ---- Vista ordenada (lista plana) ----
+      var esc = ESCENARIOS.filter(function (e) { return e.key === state.sortKey; })[0];
+      var flat = [];
+      grupos.forEach(function (grupo) {
+        grupo.filas.forEach(function (fila) {
+          fila._grupoCorto = grupo.corto;
+          flat.push(fila);
+        });
+      });
+      flat.sort(function (a, b) {
+        var ra = rUSD(a, esc.dolar), rb = rUSD(b, esc.dolar);
+        return state.sortDir === "desc" ? rb - ra : ra - rb;
+      });
+      flat.forEach(function (fila) { renderFila(fila, true); });
+    }
+  }
+
+  renderTable();
+})();
+</script>
+</body>
+</html>
