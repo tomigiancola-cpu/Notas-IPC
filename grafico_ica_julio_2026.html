@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Balanza comercial argentina — Julio 2026</title>
+<style>
+  :root {
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --text-accent: #0f6e56;
+    --surface-1: #f6f5f1;
+    --border: rgba(11,11,11,0.10);
+    --radius: 8px;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-voice: Georgia, "Times New Roman", serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    background: #ffffff;
+    margin: 0;
+    padding: 24px;
+    max-width: 760px;
+  }
+  .chart-title {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0 0 4px;
+  }
+  .chart-sub {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0 0 20px;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .card {
+    background: var(--surface-1);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .card .label { font-size: 13px; color: var(--text-secondary); margin: 0 0 4px; }
+  .card .value { font-family: var(--font-voice); font-size: 30px; font-weight: 500; margin: 0; font-variant-numeric: tabular-nums; }
+  .card .delta { font-size: 12px; color: var(--text-secondary); margin: 4px 0 0; }
+  .card .delta.pos { color: var(--text-accent); }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .swatch-line { width: 14px; height: 3px; border-radius: 2px; }
+  .swatch-box { width: 10px; height: 10px; border-radius: 2px; }
+  .chart-wrap { position: relative; width: 100%; height: 320px; }
+  .source {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 16px 0 0;
+    line-height: 1.5;
+    border-top: 0.5px solid var(--border);
+    padding-top: 10px;
+  }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+</style>
+</head>
+<body>
+<h2 class="sr-only">Evolución mensual de exportaciones, importaciones y saldo comercial de Argentina, enero 2025 a julio 2026, en millones de dólares.</h2>
+
+<p class="chart-title">Balanza comercial argentina</p>
+<p class="chart-sub">Exportaciones, importaciones y saldo mensual, en millones de USD. Enero 2025 – julio 2026</p>
+
+<div class="cards">
+  <div class="card">
+    <p class="label">Saldo julio 2026</p>
+    <p class="value">US$2.115 M</p>
+    <p class="delta">32° mes en positivo</p>
+  </div>
+  <div class="card">
+    <p class="label">Exportaciones</p>
+    <p class="value">US$8.854 M</p>
+    <p class="delta pos">+14,1% i.a.</p>
+  </div>
+  <div class="card">
+    <p class="label">Importaciones</p>
+    <p class="value">US$6.739 M</p>
+    <p class="delta">−1,7% i.a.</p>
+  </div>
+</div>
+
+<div class="legend">
+  <span><span class="swatch-line" style="background:#2a78d6;"></span>Exportaciones</span>
+  <span><span class="swatch-line" style="background:#eb6834;"></span>Importaciones</span>
+  <span><span class="swatch-box" style="background:rgba(27,175,122,0.55);"></span>Saldo comercial</span>
+</div>
+
+<div class="chart-wrap">
+  <canvas id="icaChart" role="img" aria-label="Gráfico combinado: barras del saldo comercial y líneas de exportaciones e importaciones mensuales de enero 2025 a julio 2026. El saldo se mantiene positivo todos los meses, con exportaciones creciendo y separándose de importaciones estables.">Saldo comercial mensual positivo todos los meses entre enero 2025 y julio 2026, con exportaciones en ascenso e importaciones relativamente estables.</canvas>
+</div>
+
+<p class="source">Fuente: INDEC, Intercambio Comercial Argentino (ICA), Bienes — Julio de 2026. Dirección Nacional de Estadísticas del Sector Externo y Cuentas Internacionales.</p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const labels = ['Ene 25','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic','Ene 26','Feb','Mar','Abr','May','Jun','Jul'];
+const expo = [5915,6140,6642,6674,7095,7275,7761,7903,8128,7963,8133,7482,7245,5963,8697,8916,9578,9112,8854];
+const impo = [5753,5864,6019,6460,6488,6396,6854,6463,7191,7150,5598,5556,5057,5167,6116,6203,6128,6877,6739];
+const saldo = [162,275,623,214,607,879,907,1440,937,813,2535,1927,2189,797,2581,2713,3450,2235,2115];
+const muted = getComputedStyle(document.documentElement).getPropertyValue('--text-muted') || '#898781';
+new Chart(document.getElementById('icaChart'), {
+  data: {
+    labels,
+    datasets: [
+      { type: 'bar', label: 'Saldo', data: saldo, backgroundColor: 'rgba(27,175,122,0.45)', borderRadius: 3, order: 3, barPercentage: 0.85, categoryPercentage: 0.85 },
+      { type: 'line', label: 'Exportaciones', data: expo, borderColor: '#2a78d6', backgroundColor: '#2a78d6', borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0.3, order: 1 },
+      { type: 'line', label: 'Importaciones', data: impo, borderColor: '#eb6834', backgroundColor: '#eb6834', borderWidth: 2, borderDash: [5,4], pointRadius: 0, pointHoverRadius: 5, tension: 0.3, order: 2 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: { label: (c) => c.dataset.label + ': US$' + c.parsed.y.toLocaleString('es-AR') + ' M' }
+      }
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: muted, font: { size: 11 }, autoSkip: false, maxRotation: 45, minRotation: 45 } },
+      y: { beginAtZero: true, grid: { color: 'rgba(137,135,129,0.18)' }, ticks: { color: muted, font: { size: 11 }, callback: (v) => 'US$' + (v/1000) + 'k M' } }
+    }
+  }
+});
+</script>
+</body>
+</html>
