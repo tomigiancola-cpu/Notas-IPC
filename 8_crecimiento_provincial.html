@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crecimiento provincial 2022-2025</title>
+<style>
+  :root{
+    --text-primary:#1a1a19;--text-secondary:#52514e;--text-muted:#898781;
+    --green:#12946A;--green-soft:#3FB88C;--red:#D6483F;--red-soft:#E67C74;
+    --surface:#ffffff;--chip:#F0EFEA;--chip-active:#1a1a19;--border:#e2e1da;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:var(--text-primary);background:transparent;padding:14px;}
+  .wrap{max-width:740px;margin:0 auto;}
+  h3{font-size:17px;margin:0 0 3px;letter-spacing:-0.01em;}
+  .sub{font-size:13px;color:var(--text-secondary);margin:0 0 14px;}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px;}
+  .chip{font-size:12.5px;padding:6px 13px;border-radius:999px;background:var(--chip);color:var(--text-secondary);cursor:pointer;border:none;transition:all .15s;font-family:inherit;white-space:nowrap;}
+  .chip:hover{background:#e5e4dc;}
+  .chip.active{background:var(--chip-active);color:#fff;}
+  .rows{display:flex;flex-direction:column;gap:9px;}
+  .row{display:grid;grid-template-columns:130px 1fr;align-items:center;gap:12px;animation:fade .3s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  .name{font-size:13px;color:var(--text-primary);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .name .reg{display:block;font-size:10px;color:var(--text-muted);}
+  .barzone{position:relative;height:26px;display:flex;align-items:center;}
+  .axis{position:absolute;top:-2px;bottom:-2px;width:1px;background:var(--border);}
+  .bar{height:26px;border-radius:5px;display:flex;align-items:center;position:absolute;transition:width .5s cubic-bezier(.22,1,.36,1);min-width:2px;}
+  .bar.pos{background:linear-gradient(90deg,var(--green-soft),var(--green));justify-content:flex-start;}
+  .bar.neg{background:linear-gradient(90deg,var(--red),var(--red-soft));justify-content:flex-end;}
+  .val{font-size:12px;font-weight:600;color:#fff;padding:0 8px;white-space:nowrap;}
+  .val.out{color:var(--text-primary);position:absolute;padding:0 6px;}
+  .val.out.pos{left:100%;}
+  .val.out.neg{right:100%;}
+  .foot{font-size:11px;color:var(--text-muted);line-height:1.5;margin-top:16px;padding-top:12px;border-top:1px solid var(--border);}
+  .headnote{font-size:11.5px;color:var(--text-muted);margin-bottom:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h3>Solo 9 de 24 provincias crecieron</h3>
+  <p class="sub">Variación del Producto Bruto Geográfico, 2022 – 2025</p>
+  <div class="chips" id="chips"></div>
+  <div class="headnote" id="headnote"></div>
+  <div class="rows" id="rows"></div>
+  <p class="foot">Fuente: Equilibra, en base a la metodología de CEPAL. Estimación comparable (no oficial). Se toma 2022 como base porque la sequía de 2023 distorsiona la comparación.</p>
+</div>
+<script>
+const D = [
+  ['Neuquén', 31.7, 'Patagonia'],
+  ['CABA', 3.4, 'Centro'],
+  ['Salta', 2.9, 'NOA'],
+  ['Catamarca', 2.7, 'NOA'],
+  ['Santa Fe', 2.6, 'Centro'],
+  ['Río Negro', 2.4, 'Patagonia'],
+  ['Mendoza', 2.0, 'Cuyo'],
+  ['San Juan', 0.9, 'Cuyo'],
+  ['Córdoba', 0.5, 'Centro'],
+  ['Entre Ríos', -0.6, 'Centro'],
+  ['Chubut', -1.8, 'Patagonia'],
+  ['Buenos Aires', -2.5, 'Centro'],
+  ['Tucumán', -3.8, 'NOA'],
+  ['Jujuy', -4.3, 'NOA'],
+  ['Misiones', -4.5, 'NEA'],
+  ['Chaco', -6.0, 'NEA'],
+  ['Santiago del Estero', -12.1, 'NOA'],
+  ['Formosa', -13.0, 'NEA'],
+  ['Tierra del Fuego', -13.7, 'Patagonia']
+];
+const regions = ['Todas','Patagonia','Cuyo','NOA','NEA','Centro'];
+const maxAbs = 32;
+let active = 'Todas';
+
+const chipsEl = document.getElementById('chips');
+const rowsEl = document.getElementById('rows');
+const noteEl = document.getElementById('headnote');
+
+regions.forEach(r=>{
+  const b=document.createElement('button');
+  b.className='chip'+(r===active?' active':'');
+  b.textContent=r; b.onclick=()=>{active=r;render();};
+  chipsEl.appendChild(b);
+});
+
+function render(){
+  [...chipsEl.children].forEach(c=>c.classList.toggle('active',c.textContent===active));
+  const list = active==='Todas' ? D : D.filter(d=>d[2]===active);
+  const up = list.filter(d=>d[1]>=0).length, down = list.filter(d=>d[1]<0).length;
+  noteEl.textContent = `${list.length} jurisdicciones · ${up} crecieron · ${down} cayeron`;
+  const zonePct = 55; // center axis position %
+  rowsEl.innerHTML='';
+  list.forEach(([name,val,reg])=>{
+    const row=document.createElement('div'); row.className='row';
+    const w = Math.abs(val)/maxAbs*zonePct;
+    const pos = val>=0;
+    const wide = w>12;
+    row.innerHTML=`
+      <div class="name">${name}<span class="reg">${reg}</span></div>
+      <div class="barzone">
+        <div class="axis" style="left:${zonePct}%"></div>
+        <div class="bar ${pos?'pos':'neg'}" style="${pos?`left:${zonePct}%;width:${w}%`:`right:${100-zonePct}%;width:${w}%`}">
+          ${wide?`<span class="val">${pos?'+':''}${val}%</span>`:''}
+        </div>
+        ${!wide?`<span class="val out ${pos?'pos':'neg'}" style="${pos?`left:${zonePct+w}%`:`right:${(100-zonePct)+w}%`}">${pos?'+':''}${val}%</span>`:''}
+      </div>`;
+    rowsEl.appendChild(row);
+  });
+}
+render();
+</script>
+</body>
+</html>
